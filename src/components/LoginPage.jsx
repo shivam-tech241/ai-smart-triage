@@ -2,6 +2,14 @@ import React, { useState } from "react";
 import { Lock, User, ShieldCheck, Activity, Key, LogIn, Sparkles, UserPlus } from "lucide-react";
 import api from "../api/axios";
 
+const passwordRules = [
+  { label: "Minimum 8 characters", test: (pw) => pw.length >= 8 },
+  { label: "At least 1 uppercase letter", test: (pw) => /[A-Z]/.test(pw) },
+  { label: "At least 1 lowercase letter", test: (pw) => /[a-z]/.test(pw) },
+  { label: "At least 1 number", test: (pw) => /[0-9]/.test(pw) },
+  { label: "At least 1 special character (@, #, $, !, %, *, ?, &)", test: (pw) => /[@#$!%*?&]/.test(pw) }
+];
+
 export default function LoginPage({ onLogin, onNavigate }) {
   const [activeTab, setActiveTab] = useState("patient"); // patient | doctor | admin
   const [isRegister, setIsRegister] = useState(false);
@@ -20,6 +28,38 @@ export default function LoginPage({ onLogin, onNavigate }) {
   const [error, setError] = useState("");
   const [success, setSuccess] = useState("");
 
+  const ruleStates = passwordRules.map(rule => ({
+    label: rule.label,
+    met: rule.test(password)
+  }));
+  const metCount = ruleStates.filter(r => r.met).length;
+
+  let strengthLabel = "Weak";
+  let barColor = "bg-red-500";
+  let progressPercent = "25%";
+
+  if (!password) {
+    strengthLabel = "Weak";
+    barColor = "bg-slate-200";
+    progressPercent = "0%";
+  } else if (metCount === 3) {
+    strengthLabel = "Fair";
+    barColor = "bg-orange-500";
+    progressPercent = "50%";
+  } else if (metCount === 4) {
+    strengthLabel = "Good";
+    barColor = "bg-yellow-500";
+    progressPercent = "75%";
+  } else if (metCount === 5) {
+    strengthLabel = "Strong";
+    barColor = "bg-green-500";
+    progressPercent = "100%";
+  } else {
+    strengthLabel = "Weak";
+    barColor = "bg-red-500";
+    progressPercent = metCount === 0 ? "0%" : (metCount === 1 ? "15%" : "30%");
+  }
+  
   const handleAutofill = () => {
     setError("");
     setSuccess("");
@@ -49,6 +89,13 @@ export default function LoginPage({ onLogin, onNavigate }) {
       // REGISTRATION LOGIC
       if (!name || !password) {
         setError("Please enter your name and password.");
+        return;
+      }
+
+      // Check password strength
+      const isStrong = passwordRules.every(rule => rule.test(password));
+      if (!isStrong) {
+        setError("Password is too weak. Please meet all requirements.");
         return;
       }
 
@@ -280,6 +327,43 @@ export default function LoginPage({ onLogin, onNavigate }) {
                     placeholder="••••••••"
                   />
                 </div>
+
+                {/* Live Password Strength Indicator */}
+                {password && (
+                  <div className="mt-3 space-y-2 text-left">
+                    <div className="flex items-center justify-between text-xs">
+                      <span className="font-semibold text-hospital-body">Password Strength:</span>
+                      <span className={`font-bold ${
+                        metCount === 5 ? "text-green-600" :
+                        metCount === 4 ? "text-yellow-600" :
+                        metCount === 3 ? "text-orange-600" : "text-red-600"
+                      }`}>
+                        {strengthLabel}
+                      </span>
+                    </div>
+                    
+                    <div className="w-full bg-slate-100 rounded-full h-2 overflow-hidden">
+                      <div 
+                        className={`h-full transition-all duration-300 ${barColor}`} 
+                        style={{ width: progressPercent }}
+                      />
+                    </div>
+
+                    {ruleStates.some(r => !r.met) && (
+                      <div className="text-[11px] text-slate-500">
+                        <span className="font-semibold block mb-1">Still required:</span>
+                        <ul className="space-y-1 pl-1">
+                          {ruleStates.filter(r => !r.met).map((rule, idx) => (
+                            <li key={idx} className="flex items-center gap-1 text-red-500">
+                              <span className="text-red-500">○</span>
+                              <span>{rule.label}</span>
+                            </li>
+                          ))}
+                        </ul>
+                      </div>
+                    )}
+                  </div>
+                )}
               </div>
 
               {activeTab === "doctor" && (
